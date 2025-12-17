@@ -20,21 +20,20 @@ global $CFG;
 require_once($CFG->libdir . '/questionlib.php');
 
 use coding_exception;
-use external_api;
-use external_function_parameters;
-use external_multiple_structure;
-use external_single_structure;
-use external_value;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_multiple_structure;
+use core_external\external_single_structure;
+use core_external\external_value;
 use invalid_parameter_exception;
 use mod_philosophers\external\exporter\mdl_answer_dto;
 use mod_philosophers\external\exporter\mdl_category_dto;
 use mod_philosophers\external\exporter\mdl_question_dto;
 use mod_philosophers\util;
 use moodle_exception;
-use question_edit_contexts;
+use core_question\local\bank\question_edit_contexts;
 use restricted_context_exception;
 use stdClass;
-use function question_category_options;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -205,9 +204,27 @@ class questionbank extends external_api {
         $ctx = $coursemodule->context;
 
         // load categories
+        global $DB;
         $question_contexts = new question_edit_contexts($ctx);
-        $usable_question_contexts = $question_contexts->having_cap('moodle/question:useall');
-        $question_categories = question_category_options($usable_question_contexts);
+        $usable_contexts = $question_contexts->having_cap('moodle/question:useall');
+
+        //Get all question categories from usable contexts
+        $question_categories = [];
+        foreach ($usable_contexts as $context) {
+            $context_name = $context->get_context_name();
+            $categories = $DB->get_records('question_categories', ['contextid' => $context->id], 'sortorder ASC');
+
+            if ($categories) {
+                $question_categories[$context_name] = [];
+                foreach ($categories as $category) {
+                    // Build the key in the format "categoryid,contextid" to match the old format
+                    $key = $category->id . ',' . $category->contextid;
+                    // Add appropriate indentation to show category hierarchy
+                    $indent = str_repeat('&nbsp;&nbsp;&nbsp;', $category->depth ?? 0);
+                    $question_categories[$context_name][$key] = $indent . $category->name;
+                }
+            }
+        }
         /**
          * structure of categories result:
          * two-dimensional array with

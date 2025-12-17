@@ -125,7 +125,9 @@ class level extends abstract_model {
             $mdl_category_ids = \array_merge($mdl_category_ids, $category->get_mdl_category_ids());
         }
         list($cat_sql, $cat_params) = $DB->get_in_or_equal($mdl_category_ids);
-
+        if (empty($mdl_category_ids)) {
+            throw new \dml_exception('no question categories available for this level');
+        }
         // build query for moodle question selection
         //  * Only the most recent version of each question is returned.
         $sql = "
